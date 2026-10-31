@@ -486,9 +486,9 @@ static void row_game_lang(void) {
 
 // The frame limit (frame_rate.c): unset, the older fps60 = 0 still means 30. The monitor choice shows the rate it gives.
 static void row_fps_limit() {
-    static const char *const vals[] = {"30", "60", "90", "120", "144", "display"};
+    static const char *const vals[] = {"30", "60", "90", "120", "144", "display", "unlimited"};
     static const UiTextId ids[] = {UI_MENU_FPS_30, UI_MENU_FPS_60, UI_MENU_FPS_90, UI_MENU_FPS_120, UI_MENU_FPS_144,
-                                    UI_MENU_FPS_DISPLAY};
+                                     UI_MENU_FPS_DISPLAY, UI_MENU_FPS_UNLIMITED};
     enum { N = sizeof vals / sizeof *vals };
     const char *names[N];
     for (int i = 0; i < N; i++) names[i] = menu_text(ids[i]);
@@ -496,7 +496,7 @@ static void row_fps_limit() {
     double hz = gfx_window_refresh_hz();
     if (hz > 0) {
         snprintf(display, sizeof display, menu_text(UI_MENU_FPS_DISPLAY_HZ), hz);
-        names[N - 1] = display;
+        names[N - 2] = display;
     }
     const char *set = cfg_get("TOTK_FPS_LIMIT"), *old = cfg_get("TOTK_FPS60");
     int cur = (!set || !*set) && old && !strcmp(old, "0") ? 0 : -1;
@@ -976,6 +976,7 @@ static void perf_picture(const MenuTarget *t, const ImVec4 &c) {
     double hz = frame_step_limit_hz();
     snprintf(v[4], sizeof v[4], "%s", menu_text(UI_MENU_OV_NONE));
     if (hz > 0) snprintf(v[4], sizeof v[4], menu_text(UI_MENU_OV_FPS), hz);
+    else if (hz < 0) snprintf(v[4], sizeof v[4], "%s", menu_text(UI_MENU_FPS_UNLIMITED));
     const char *pm = present_name(gfx_window_present_mode());
     snprintf(v[5], sizeof v[5], "%s", pm ? pm : menu_text(UI_MENU_OV_NONE));
     static const UiTextId labels[6] = {UI_MENU_OV_WINDOW, UI_MENU_OV_OUTPUT, UI_MENU_OV_SCENE,

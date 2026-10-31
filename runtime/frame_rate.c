@@ -91,26 +91,28 @@ void frame_step_init(void) {
 int frame_step_realtime(void) { return step_word != NULL; }
 
 // The frame limit (menu, TOTK_FPS_LIMIT, live): 30, 60, 90, 120, 144, any whole rate from 30 to 360, or display (the
-// refresh rate of the window's monitor). Unset, the older TOTK_FPS60=0 still means 30. A limit of 30 switches the set
-// fps60 off (the shipping minimum interval 2), every other limit switches it on; the controller reads its minimum
+// refresh rate of the window's monitor), or unlimited. Unset, the older TOTK_FPS60=0 still means 30. A limit of 30 switches
+// fps60 off (the shipping minimum interval 2); every other limit switches it on. The controller reads its minimum
 // interval from the patched sites each frame. With the real-time step the pacer holds frames to the limit; above 60
 // only the pacer changes, as the step has no lower bound. Without it the game steps whole 60 Hz vsyncs and the pacer
 // follows the game's interval, so the limit stops at 60.
 #define LIMIT_MIN_HZ 30
 #define LIMIT_MAX_HZ 360
+#define LIMIT_UNLIMITED (-2)
 static int fps60_set = -2;
 static unsigned limit_seen;
 static int limit_read;
-static int limit_hz = -1;   // 0: display; -1 before the first read
+static int limit_hz = -1;   // 0: display; -1 unread; LIMIT_UNLIMITED: no software pacing
 
 static int limit_parse(void) {
     const char *e = cfg_get("TOTK_FPS_LIMIT"), *old = cfg_get("TOTK_FPS60");
     if (!e || !*e) return old && !strcmp(old, "0") ? 30 : 60;
     if (!strcmp(e, "display")) return 0;
+    if (!strcmp(e, "unlimited")) return LIMIT_UNLIMITED;
     char *end;
     long n = strtol(e, &end, 10);
     if (!*end && n >= LIMIT_MIN_HZ && n <= LIMIT_MAX_HZ) return (int)n;
-    rt_log("frame rate: TOTK_FPS_LIMIT=%s is not 30..360 or display; 60", e);
+    rt_log("frame rate: TOTK_FPS_LIMIT=%s is not 30..360, display or unlimited; 60", e);
     return 60;
 }
 
@@ -124,8 +126,9 @@ static void frame_limit_live(void) {
     limit_hz = hz;
     if (fps60_set == -2) fps60_set = rt_patch_set("fps60");
     if (fps60_set >= 0) rt_patch_switch(fps60_set, hz != 30);
-    if ((hz > 60 || hz == 0) && !step_word)
-        rt_log("frame rate: limits above 60 need the real-time step (TOTK_REALTIME=1); 60 fps");
+    if ((hz > 60 || hz == 0 || hz == LIMIT_UNLIMITED) && !step_word)
+        rt_log("frame rate: unlimited and limits above 60 need the real-time step (TOTK_REALTIME=1); 60 fps");
+    else if (hz == LIMIT_UNLIMITED) rt_log("frame rate: unlimited (no software frame cap)");
     else if (hz) rt_log("frame rate: limit %d fps", hz);
     else if (gfx_window_refresh_hz() > 0) rt_log("frame rate: limit at the monitor's refresh rate (%.3f Hz now)", gfx_window_refresh_hz());
     else rt_log("frame rate: limit at the monitor's refresh rate (60 until the window measures it)");
@@ -133,6 +136,7 @@ static void frame_limit_live(void) {
 
 uint64_t frame_step_cap_ns(void) {
     frame_limit_live();
+    if (limit_hz == LIMIT_UNLIMITED) return step_word ? 0 : (uint64_t)(1e9 / 60 + 0.5);
     double hz = limit_hz ? limit_hz : gfx_window_refresh_hz();
     if (hz < LIMIT_MIN_HZ) hz = 60;   // display rate unknown (no window yet)
     if (hz > LIMIT_MAX_HZ) hz = LIMIT_MAX_HZ;
@@ -140,13 +144,39 @@ uint64_t frame_step_cap_ns(void) {
 }
 
 // The frame rate the limit gives, for the performance overlay: the setting, the monitor's rate for "display", 60 at
-// most without the real-time step; 0 before the first frame read the setting.
+// most without the real-time step; 0 before the first frame read the setting, -1 when unlimited.
 double frame_step_limit_hz(void) {
     int hz = limit_hz;
+    if (hz == LIMIT_UNLIMITED) return step_word ? -1 : 60;
     if (hz < 0) return 0;
     double r = hz ? hz : gfx_window_refresh_hz();
     if (r < LIMIT_MIN_HZ) r = 60;
     return !step_word && r > 60 ? 60 : r > LIMIT_MAX_HZ ? LIMIT_MAX_HZ : r;
+}
+
+// --probe-frame-rate: check the real pacing period, live transitions and fixed-step fallback without running the game.
+int probe_frame_rate(void) {
+    static _Atomic uint64_t word;
+    static const struct { const char *text; int hz; } cases[] = {
+        {"30", 30}, {"60", 60}, {"144", 144}, {"360", 360}, {"display", 0},
+        {"unlimited", LIMIT_UNLIMITED}, {"bad", 60}, {"0", 60}, {"30", 30}, {"unlimited", LIMIT_UNLIMITED},
+    };
+    int fails = 0;
+    fps60_set = -1;   // the probe has no loaded patch table
+    for (unsigned i = 0; i < sizeof cases / sizeof *cases; i++) {
+        cfg_set("TOTK_FPS_LIMIT", cases[i].text);
+        step_word = &word;
+        uint64_t cap = frame_step_cap_ns();
+        int hz = cases[i].hz;
+        if (limit_hz != hz || (hz == LIMIT_UNLIMITED ? cap != 0 || frame_step_limit_hz() != -1 : cap == 0)) fails++;
+        if (hz > 0 && cap != (uint64_t)(1e9 / hz + 0.5)) fails++;
+        if (hz == LIMIT_UNLIMITED) {
+            step_word = NULL;
+            if (frame_step_cap_ns() != (uint64_t)(1e9 / 60 + 0.5) || frame_step_limit_hz() != 60) fails++;
+        }
+    }
+    printf("probe-frame-rate: %s (%d failures)\n", fails ? "FAILED" : "passed", fails);
+    return fails != 0;
 }
 
 // ---- TOTK_TRACE=perf speed lines

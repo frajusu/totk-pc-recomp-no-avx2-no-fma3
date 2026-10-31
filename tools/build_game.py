@@ -600,6 +600,8 @@ def mib(n):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--version', default='v121', help='game version (default v121)')
+    ap.add_argument('--cpu', choices=('x86-64-v3', 'sandybridge'), default='x86-64-v3',
+                    help='host CPU target; sandybridge uses software FMA and needs no AVX2')
     ap.add_argument('--gen', type=Path, help='generated C directory (default generated/<version>)')
     ap.add_argument('--out', type=Path, help='build directory (default build/<version>)')
     ap.add_argument('--modules', help='comma-separated subset of the layout modules (default all)')
@@ -631,6 +633,9 @@ def main():
     ap.add_argument('--expected', type=Path,
                     help='expected hashes (default tools/data/expected-<display version>.json)')
     args = ap.parse_args()
+
+    for flags in (GEN_FLAGS, RT_FLAGS):
+        flags[flags.index('-march=x86-64-v3')] = f'-march={args.cpu}'
 
     gen = (args.gen or ROOT / 'generated' / args.version).resolve()
     out = (args.out or ROOT / 'build' / args.version).resolve()

@@ -217,9 +217,12 @@ static int format_compressed(VkFormat f) {   // vkCmdClearColorImage takes no bl
            (f >= VK_FORMAT_ASTC_4x4_SFLOAT_BLOCK && f <= VK_FORMAT_ASTC_12x12_SFLOAT_BLOCK);
 }
 
-static int bind_pool_memory(VkCtx *c, Tex *e, VkImage img) {
+// Backported from upstream c33af6020b: RDNA2 depth compression metadata must not extend into
+// the next NVN texture. Give an oversized depth/stencil image its own allocation instead.
+static int bind_pool_memory(VkCtx *c, Tex *e, VkImage img, uint64_t guest_size) {
     VkMemoryRequirements req;
     vkGetImageMemoryRequirements(c->device, img, &req);
+    if ((e->f.depth || e->f.stencil) && req.size > guest_size) return 0;
     VkMemSpan sp;
     if (!vk_mem_resolve(e->pub.addr, req.size, &sp) || !sp.alloc || sp.alloc_offset % req.alignment) return 0;
     VmaAllocationInfo info;
@@ -360,7 +363,7 @@ static Tex *create_tex(const tex_t *t, const TexKey *k, int defer_init) {
     e->pub.addr = k->addr;
     VkImage img = VK_NULL_HANDLE;
     if (nvn_gpu_only(k->addr)) {   // storage in a physical or virtual pool: alias the pool memory (section 3.2)
-        if (vkCreateImage(c->device, &ci, NULL, &img) == VK_SUCCESS && !bind_pool_memory(c, e, img)) {
+        if (vkCreateImage(c->device, &ci, NULL, &img) == VK_SUCCESS && !bind_pool_memory(c, e, img, L.size)) {
             vkDestroyImage(c->device, img, NULL);
             img = VK_NULL_HANDLE;
             log_limited(&n_unbound, "texture %#llx (%ux%u fmt %#x) cannot alias its pool memory; own memory instead",

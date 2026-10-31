@@ -7,7 +7,7 @@
 // tables. Not modelled: FPSR cumulative exception bits and QC, FPCR trap enables, FP16 arithmetic (ARMv8.2).
 // FPCR.AHP is honoured by the half-precision conversions. Host assumptions: IEEE binary32/64, MXCSR in
 // round-to-nearest outside the slow paths, with FTZ|DAZ equal to FPCR.FZ (cpu.h rt_fpcr_sync keeps it so); fma must be
-// correctly rounded (build x86 with -mfma).
+// correctly rounded (hardware FMA, or the integer fallback in soft_fma.h).
 #pragma once
 #include <fenv.h>
 #include <immintrin.h>
@@ -25,6 +25,12 @@ typedef __uint128_t u128;
 SIMD_VT(vu8, uint8_t) SIMD_VT(vs8, int8_t) SIMD_VT(vu16, uint16_t) SIMD_VT(vs16, int16_t)
 SIMD_VT(vu32, uint32_t) SIMD_VT(vs32, int32_t) SIMD_VT(vu64, uint64_t) SIMD_VT(vs64, int64_t)
 SIMD_VT(vf32, float) SIMD_VT(vf64, double)
+#ifdef __FMA__
+#define SIMD_FMA __builtin_elementwise_fma
+#else
+#include "soft_fma.h"
+#define SIMD_FMA soft_fma
+#endif
 typedef uint16_t __attribute__((may_alias)) sa16;
 typedef uint32_t __attribute__((may_alias)) sa32;
 typedef uint64_t __attribute__((may_alias)) sa64;

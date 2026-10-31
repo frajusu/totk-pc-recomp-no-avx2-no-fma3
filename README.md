@@ -1,5 +1,17 @@
 # TotK Recomp
 
+## Sandy Bridge fork: no AVX2 or FMA3 required
+
+This fork adds a **Sandy Bridge CPU target**, including integer software FMA, tested on a Xeon E5-2689 with a Radeon
+RX 6500 XT. It also includes AMD RDNA2 graphics fixes and a true **Unlimited** frame-rate option. See
+[the build instructions and validation notes](docs/sandybridge.md).
+
+Build from source with `tools/build_game.py --version v121 --cpu sandybridge`. The upstream installer and its prebuilt
+runtime still require AVX2; the source build compiles the runtime for the selected CPU. Game files and keys are supplied
+locally by each player.
+
+Upstream project: [valentderah/totk-pc-recomp](https://github.com/valentderah/totk-pc-recomp).
+
 **TotK Recomp** is a static recompilation of *The Legend of Zelda: Tears of the Kingdom* (Nintendo Switch, 2023) into a native Windows x86-64 application ([docs/architecture.md](docs/architecture.md)).
 
 > [!IMPORTANT]

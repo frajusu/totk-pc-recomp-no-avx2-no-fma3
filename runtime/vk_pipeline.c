@@ -278,6 +278,14 @@ static int ensure_init(void) {
         P.dyn_wmask = e3.extendedDynamicState3ColorWriteMask && PROC(set_wmask, "vkCmdSetColorWriteMaskEXT");
         P.dyn_a2c = e3.extendedDynamicState3AlphaToCoverageEnable && PROC(set_a2c, "vkCmdSetAlphaToCoverageEnableEXT");
     }
+    // Backported from upstream bca7e8aea5: AMD's RDNA2-and-older Windows driver can apply
+    // alpha to coverage even when its dynamic state is false. Bake it into the pipeline instead.
+    const char *da = cfg_get("TOTK_VK_DYN_A2C");
+    int da_on = da && *da ? strcmp(da, "0") != 0 : !vk_caps.amd_sc;
+    if (!da_on && P.dyn_a2c) {
+        P.dyn_a2c = 0;
+        rt_log("vk_pipeline: dynamic alpha to coverage off (%s)", da && *da ? "TOTK_VK_DYN_A2C=0" : "AMD's driver for RDNA 2 and older");
+    }
 #undef PROC
     static const VkDynamicState core[] = {
         VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT, VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT, VK_DYNAMIC_STATE_DEPTH_BIAS,

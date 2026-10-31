@@ -305,9 +305,15 @@ static void host_probe(Cpu *c) { host_probe_hits++; c->x[0] = 42; }
 
 static void check_cpu(void) {
     __builtin_cpu_init();
+#ifdef __AVX2__
     int ok = __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma") && __builtin_cpu_supports("bmi2");
     printf("cpu: x86-64-v3 (AVX2, FMA, BMI2) %s\n", ok ? "present" : "MISSING");
     CHECK(ok, "the lifted code is built for x86-64-v3");
+#else
+    int ok = __builtin_cpu_supports("avx") && __builtin_cpu_supports("sse4.2") && __builtin_cpu_supports("pclmul");
+    printf("cpu: Sandy Bridge (AVX, SSE4.2, PCLMUL; software FMA) %s\n", ok ? "present" : "MISSING");
+    CHECK(ok, "the lifted code is built for Sandy Bridge");
+#endif
 }
 
 // Layout: ascending, no overlap, below 2^39, and inside the window mem_init reserved.
@@ -473,7 +479,7 @@ static int selftest(void) {
 
 static int usage(const char *argv0) {
     fprintf(stderr, "usage: %s [--exefs DIR] [--romfs DIR] [--profile DIR] [--selftest | --probe-loader | "
-                    "--probe-cfg | --probe-dpi | --probe-kernel | --probe-ipc | --probe-services | --probe-fs | --probe-gfx-abi | "
+                    "--probe-cfg | --probe-frame-rate | --probe-dpi | --probe-kernel | --probe-ipc | --probe-services | --probe-fs | --probe-gfx-abi | "
                     "--probe-nvn | --probe-nvn-tex | --probe-window | --probe-shader | --probe-vkmem | "
                     "--probe-vkexec | --probe-astc | --probe-movie | --prepare-shaders | --warm-shaders | --boot |--seconds S [--shot PNG]]\n", argv0);
     return 2;
@@ -509,6 +515,8 @@ static void portable_paths(RtConfig *c) {
     c->romfs = portable_path(exe, "TOTK_ROMFS", "romfs", "romfs.bin", pp_romfs, sizeof pp_romfs, c->romfs);
     c->profile = portable_path(exe, "TOTK_PROFILE_DIR", "profile", ".", pp_profile, sizeof pp_profile, c->profile);
 }
+
+int probe_frame_rate(void);   // frame_rate.c: standalone pacing checks
 
 int main(int argc, char **argv) {
     mem_init();   // first: claim the guest address space before anything else can land there; reads totk.ini
@@ -560,6 +568,7 @@ int main(int argc, char **argv) {
     if (!strcmp(mode, "--selftest")) return selftest();
     if (!strcmp(mode, "--probe-loader")) return probe_loader();
     if (!strcmp(mode, "--probe-cfg")) return probe_cfg();
+    if (!strcmp(mode, "--probe-frame-rate")) return probe_frame_rate();
     if (!strcmp(mode, "--probe-dpi")) return probe_dpi();
     if (!strcmp(mode, "--probe-kernel")) return probe_kernel();
     if (!strcmp(mode, "--probe-ipc")) return probe_ipc();

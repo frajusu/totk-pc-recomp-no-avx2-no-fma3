@@ -75,6 +75,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_FPS_30] = "30 FPS", [UI_MENU_FPS_60] = "60 FPS", [UI_MENU_FPS_90] = "90 FPS", [UI_MENU_FPS_120] = "120 FPS", [UI_MENU_FPS_144] = "144 FPS",
     // the monitor's refresh rate; printf format with the rate in Hz when it is known
     [UI_MENU_FPS_DISPLAY] = "Monitor rate", [UI_MENU_FPS_DISPLAY_HZ] = "Monitor rate (%.0f Hz)",
+    [UI_MENU_FPS_UNLIMITED] = "Unlimited",
     [UI_MENU_REALTIME] = "Game speed follows the clock",
     [UI_MENU_REALTIME_DESC] = "Steps the game by real time, so a slow frame does not slow the game down.",
     [UI_MENU_CLOTH_REALTIME] = "Cloth on the clock",
@@ -309,6 +310,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
                                "игры по часам».",
     [UI_MENU_FPS_30] = "30 FPS", [UI_MENU_FPS_60] = "60 FPS", [UI_MENU_FPS_90] = "90 FPS", [UI_MENU_FPS_120] = "120 FPS", [UI_MENU_FPS_144] = "144 FPS",
     [UI_MENU_FPS_DISPLAY] = "Как у монитора", [UI_MENU_FPS_DISPLAY_HZ] = "Как у монитора (%.0f Гц)",
+    [UI_MENU_FPS_UNLIMITED] = "Без ограничения",
     [UI_MENU_REALTIME] = "Скорость игры по часам",
     [UI_MENU_REALTIME_DESC] = "Игра идёт по реальному времени, медленный кадр её не замедляет.",
     [UI_MENU_CLOTH_REALTIME] = "Ткань по часам",
